@@ -1,0 +1,236 @@
+import numpy as np
+import sympy as sympy
+
+ # The defined function comes from Sweet's Algorithm in Sogabe's paper. 
+def DETGPENTA14(na,n):
+    # The arrays are implemented according to the paper.
+    
+    d = np.ones(n,dtype='float64')
+    b = np.ones(n,dtype='float64')
+    c = np.ones(n,dtype='float64')
+    e = np.ones(n,dtype='float64')
+    alpha = np.ones(n,dtype='float64')
+    beta = np.ones(n,dtype='float64')
+    delta = np.ones(n,dtype='float64')
+    epsilon = np.ones(n,dtype='float64')
+    ct = np.ones(n,dtype='float64')
+
+    
+    for i in range(0,n-2):
+        alpha[i] = na[i][i]
+        b[i] = na[i][i+1]*na[i+1][i]
+        beta[i] = na[i][i+2]*na[i+2][i]
+        c[i] = na[i][i+1]*na[i+1][i+2]*na[i+2][i]
+        ct[i] = na[i+1][i]*na[i+2][i+1]*na[i][i+2]
+    # end for
+    alpha[n-2] = na[n-2][n-2]
+    alpha[n-1] = na[n-1][n-1]
+    b[n-2] = na[n-2][n-1]*na[n-1][n-2]
+    d[0] = alpha[0]
+    d[1] = na[1][1]*na[0][0] - b[0]
+    delta[0] = alpha[1]
+    d[2] = alpha[2]*d[1] - b[1]*d[0] - beta[0]*delta[0] + c[0] + ct[0]
+    delta[1] = alpha[3]*d[0] - beta[0]
+    epsilon[0] = d[0] - (ct[0]/b[1])
+    e[0] = d[0] - (c[0]/b[1])
+    d[3] = alpha[3]*d[2] - b[2]*d[1] - beta[1]*delta[1] + c[1]*epsilon[0] + ct[1]*e[0]
+    for i in range(4,n):
+        delta[i-2] = alpha[i-1]*d[i-3] - beta[i-3]*d[i-4]
+        epsilon[i-3] = d[i-3] - (ct[i-3]*e[i-4]/b[i-2])
+        e[i-3] = d[i-3] - c[i-3]*epsilon[i-4]/b[i-2]
+        d[i] = alpha[i]*d[i-1] - b[i-1]*d[i-2] - beta[i-2]*delta[i-2] + c[i-2]*epsilon[i-3] + ct[i-2]*e[i-3]
+    # end
+    return d[n-1]
+
+# For n, write n-1. For n-1 write n-2 --> since for loops start at 0 instead of 1
+# input RHS
+def PLS(n,na,y):
+    
+    # Step 1: Using Algorithnm 1 from Askar's paper, the determinent of pentadiagonal matrix was used from reference [14]
+    # Creating an array with the correct size to be implement later.
+    d = np.ones(n,dtype='float64')
+    a = np.ones(n,dtype='float64')
+    b = np.ones(n,dtype='float64')
+    c = np.ones(n,dtype='float64')
+    e = np.ones(n,dtype='float64')
+    alpha = np.ones(n,dtype='float64')
+    
+    # creat a for loop that is based around d in the pentadiagonal matrix
+    for i in range(0,n):
+        d[i] = na[i][i]
+        if i == 0:
+            a[i] == na[i][i+1]
+            b[i] == na[i][i+2]
+            c[i] == 0
+            e[i] == 0 
+        elif i == 1:
+            a[i] == na[i][i+1]
+            b[i] == na[i][i+2]
+            c[i] == na[i][i-1]
+            e[i] == 0
+        elif i == n-2:
+            a[i] == na[i][i+1]
+            b[i] == 0
+            c[i] == na[i][i-1]
+            e[i] == na[i][i-2]
+        elif i == n-1:
+            a[i] == 0
+            b[i] == 0
+            c[i] == na[i][i-1]
+            e[i] == na[i][i-2]
+        else:
+            a[i] == na[i][i+1]
+            b[i] == na[i][i+2]
+            c[i] == na[i][i-1]
+            e[i] == na[i][i-2]
+        
+    # Step 2: create an 'if' statement if the determinent equals 0
+    det = DETGPENTA14(na,n)
+    if(det == 0):
+        print("No solution.")
+        return
+    
+    # need to vectorize the equation variables
+    # mu = np.ones(n, dtype = 'float64')
+    # alpha = np.ones(n, dtype = 'float64')
+    # beta = np.ones(n, dtype = 'float64')
+    # z = np.ones(n, dtype = 'float64')
+    # gamma = np.ones(n, dtype = 'float64')
+    
+    sym = sympy.symbols('sym')
+    
+    mu = sympy.zeros(1, n)
+    alpha = sympy.zeros(1, n)
+    beta = sympy.zeros(1, n)
+    z = sympy.zeros(1, n)
+    gamma = sympy.zeros(1, n)
+    
+    # Step 3: when i = 1 (in our case, 1 is 0 due to the coding matrix)
+    mu[0] = d[0]
+    if mu[0] == 0:
+        mu[0] = sym
+        
+    alpha[0] = a[0]/mu[0]
+    beta[0] = b[0]/mu[0]
+    z[0] = y[0]/mu[0]
+    
+    # Step 4: identify these vectors when i=2 (set i = 1)
+    gamma[1] = c[1]
+    mu[1] = d[1] - alpha[0]*gamma[1]
+    if mu[1] == 0:
+        mu[1] = sym
+        
+    alpha[1] = (a[1] - beta[0]*gamma[1])/mu[1]
+    beta[1] = b[1]/mu[1]
+    z[1] = (y[1]-z[0]*gamma[1]) / mu[1]
+    
+    # Step 5
+    # create a vector list from 3 to n-2
+    # open parenthesis will not include the end variable, leaving the last value to be n-3
+    x_vect = [*range(2, n - 2,1)]
+    # compute the variables from the list
+    for i in x_vect:
+        gamma[i] = c[i] - alpha[i-2]*e[i]
+        mu[i] = d[i] - beta[i-2]*e[i] - alpha[i-1]*gamma[i]
+        if mu[i] == 0:
+            mu[i] = sym
+        alpha[i] = (a[i] - beta[i-1]*gamma[i])/mu[i]
+        beta[i] = b[i]/mu[i]
+        z[i] = (y[i] - z[i-2]*e[i] - z[i-1]*gamma[i])/mu[i]
+    # end for
+    
+    gamma[n-2] = c[n-2] - alpha[n-4]*e[n-2]
+    mu[n-2] = d[n-2] - beta[n-4]*e[n-2] - alpha[n-3]*gamma[n-2]
+    if mu[n-2] == 0:
+        mu[n-2] = sym
+    
+    alpha[n-2] = (a[n-2] - beta[n-3]*gamma[n-2])/mu[n-2]
+    gamma[n-1] = c[n-1] - alpha[n-3]*e[n-1]
+    mu[n-1] = d[n-1] - beta[n-3]*e[n-1] - alpha[n-2]*gamma[n-1]
+    if mu[n-1] == 0:
+        mu[n-1] = sym
+        
+    z[n-2] = (y[n-2] - z[n-4]*e[n-2] - z[n-3]*gamma[n-2])/mu[n-2]
+    z[n-1] = (y[n-1] - z[n-3]*e[n-1] - z[n-2]*gamma[n-1])/mu[n-1]
+    
+    # Step 6
+    x = sympy.zeros(1, n)
+    x[n-1] = z[n-1]
+    x[n-2] = z[n-2] - alpha[n-2]*x[n-1]
+    for i in reversed(range(0, n-2,1)):
+        x[i] = z[i] - alpha[i] * x[i+1] - beta[i] * x[i+2]
+
+    xf = sympy.ones(1, n)
+    for i in reversed(range(0, n, 1)):
+        xf[i] = sympy.simplify(x[i])
+        xf[i] = xf[i].subs({sym:0})
+        
+    return xf
+
+# import the supplied matrix
+file = open("check.csv")
+na = np.loadtxt(file, delimiter=",")
+n = np.shape(na)[0] # Receive shape of the matrix 
+
+y = np.array([1,1,0.5,1,0.5,1])
+sol=PLS(n,na,y)
+print('PLS solution:',sol)
+
+# Built-in function
+
+solution = np.linalg.solve(na, y)
+print('Buit-in solution:', solution)
+
+# SOR
+# na is the coefficient matrix that was imported; y is the RHS matrix, x0 is the inital guess
+# tol = tolerance, max_iter = max iterations
+
+# import libraries
+import numpy as np
+import pandas as pd
+# define function
+# M is the coeff matrix; b is RHS matrix, x is the initial guesses
+# tol is acceptable tolerance and Nmax = max. iterations
+
+def sor(M,b,x,w,tol,Nmax):
+    N = len(M)  # length of the coefficient matrix
+    C = np.zeros((N,N)) # initialize iteration coeff matrix
+    d = np.zeros(N) # initiation iteration RHS matrix
+    # Create iteration matrix
+    for i in np.arange(0,N,1):
+        pvt = M[i,i]  # identify the pivot element
+        C[i,:] = -M[i,:]/pvt # divide coefficient by pivot
+        C[i,i] = 0 # the pivot element
+        d[i] = b[i]/pvt # divide RHS by Pivot element
+        
+    # Perform iterations
+    res = 100 # create a high res so there is at least 1 iteration
+    iter = 0 #initialize iteration
+    x = np.zeros((6), dtype='float64')
+    xold = x # initialize xold
+    res = np.linalg.norm(np.matmul(M,x) - b)
+    # iterate when residual > tol or iter <= max iterations
+    while(res > tol and iter <= Nmax):
+        for i in np.arange(0,N,1):  # loop through all unknowns
+            x[i] = (1-w)*xold[i] + w*(d[i] + sum(C[i,:]*x)) # estimate new values
+        res = np.sum(np.abs(np.matmul(M,x) - b)) # compute res
+        iter = iter + 1 # update residual
+        xold = x
+    return(x)
+
+# Solve Example
+Nmax = 100  # Max. Number of iteration
+tol = 1e-03 # Absolute tolerance
+M = [[1,1,1,0,0,0],
+     [1,1,1,1,0,0],
+     [1,1,1,1,1,0],
+     [0,1,1,1,1,1],
+     [0,0,1,1,1,1],
+     [0,0,0,1,1,1]]
+M = np.array(M) # Coefficient Matrix
+b = np.array([1,1,0.5,1,0.5,1]) 
+y = [0,0,0,0,0,0] 
+y = np.array(y) # Initial Guesses
+w = 1
+X = sor(M,b,y,w,tol,Nmax) # Apply the function
+print(X)
